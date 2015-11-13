@@ -170,7 +170,7 @@ bool SqlDatabaseManager::ModelList(vector<Model*>* model_list,
   for (int row = 0; row < num_rows; ++row) {
     Model* model = model_allocator_->Get();
 	if (!load_model_functor(model, row)){
-		return false;
+        continue;
 	}
     model_list->push_back(model);
   }
