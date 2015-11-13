@@ -73,10 +73,18 @@ class Table {
   template <class FieldType>
   bool GetField(const size_t column_num, 
                 const size_t row_num, 
-                FieldType* result) const {    
-    return (column_num < data_.size())
-        ? QVariantConvert(data_[column_num][row_num], result)
-        : false;
+                FieldType* result) const {
+        std::cout << "Column NUm: "<< column_num << std::endl;
+        std::cout << "Row NUm: "<< row_num << std::endl;
+        std::cout << "data.size: "<< data_.size() << std::endl;
+        std::cout << "column_num < data_.size(): " << (column_num < data_.size()) << std::endl;
+        return QVariantConvert(data_[column_num][row_num], result);
+
+
+//        return (column_num < data_.size())
+//            ? QVariantConvert(data_[column_num][row_num], result)
+//            : false;
+        //return true;
   }
 };
 

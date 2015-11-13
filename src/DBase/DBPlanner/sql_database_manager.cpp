@@ -218,11 +218,15 @@ bool SqlDatabaseManager::GraspTypeList(
 bool SqlDatabaseManager::GetGrasps(const Model& model, 
                                    const string& hand_name, 
                                    vector<Grasp*>* grasp_list) const {
+
+  std::cout << "SELECT * FROM get_grasps('" << model.ModelName() <<
+                 "','" << hand_name << "');" << std::endl;
+  std::cout << "Valid Hand Names include BARRETT_RUBBER" << std::endl;
   if (grasp_list == NULL) return false;
   Table results;
   PROF_START_TIMER(GET_GRASPS_SQL);
   if (!database_.Query("SELECT * FROM get_grasps('" + model.ModelName() + 
-                       "','" + hand_name + "');", &results)) 
+                       "','" + "BARRETT_RUBBER" + "');", &results))
     return false;
   PROF_STOP_TIMER(GET_GRASPS_SQL);
   // Get the column indices for the columns we care about.
@@ -261,16 +265,20 @@ bool SqlDatabaseManager::GetGrasps(const Model& model,
 	grasp_position.clear();
 
 	PROF_START_TIMER(GET_GRASPS_GETFIELD);
-    if (!results.GetField(pregrasp_joints_column, row, &pregrasp_joints) || 
-        !results.GetField(grasp_joints_column, row, &grasp_joints) || 
-        !results.GetField(pregrasp_position_column, row, &pregrasp_position) ||
-        !results.GetField(grasp_position_column, row, &grasp_position) || 
-        !results.GetField(grasp_id_column, row, &grasp_id) ||
-        !results.GetField(epsilon_quality_column, row, &epsilon_quality) ||
-        !results.GetField(volume_quality_column, row, &volume_quality) ||
-		!results.GetField(grasp_contacts_column, row, &grasp_contacts) ||
-		!results.GetField(grasp_source_name_column, row, &grasp_source_name))
-      return false;
+        if (!results.GetField(pregrasp_joints_column, row, &pregrasp_joints) ||
+            !results.GetField(grasp_joints_column, row, &grasp_joints) ||
+            !results.GetField(pregrasp_position_column, row, &pregrasp_position) ||
+            !results.GetField(grasp_position_column, row, &grasp_position) ||
+            !results.GetField(grasp_id_column, row, &grasp_id) ||
+            !results.GetField(epsilon_quality_column, row, &epsilon_quality) ||
+            !results.GetField(volume_quality_column, row, &volume_quality) ||
+            !results.GetField(grasp_contacts_column, row, &grasp_contacts) ||
+            !results.GetField(grasp_source_name_column, row, &grasp_source_name))
+        {
+            grasp_list->pop_back();
+            continue;
+        }
+
 	PROF_STOP_TIMER(GET_GRASPS_GETFIELD);
     grasp.SetSourceModel(model);
     grasp.SetHandName(hand_name);
