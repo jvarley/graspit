@@ -23,9 +23,6 @@
 //
 //######################################################################
 
-
-#include "bulletDynamics.h"
-
 #include <btBulletDynamicsCommon.h>
 #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 #include <BulletCollision/CollisionShapes/btTriangleMesh.h>
@@ -34,111 +31,26 @@
 #include <BulletDynamics/ConstraintSolver/btHingeConstraint.h>
 #include <BulletDynamics/ConstraintSolver/btGearConstraint.h>
 
+#include "bulletDynamics.h"
+#include "bulletEngine.h"
 #include "body.h"
 #include "dynJoint.h"
 #include "robot.h"
 #include "triangle.h"
 #include "world.h"
-
 #include "debug.h"
 #include "dynamics.h"
 #include "humanHand.h"
-BulletDynamics::BulletDynamics(World *world)
-{
 
+BulletDynamics::BulletDynamics(World *world, BulletEngine *be)
+{
   mWorld = world;
-
-  // collision configuration contains default setup for memory, collision setup.
-  btDefaultCollisionConfiguration *collisionConfiguration;
-  collisionConfiguration = new btDefaultCollisionConfiguration();
-
-  // use the default collision dispatcher.
-  btCollisionDispatcher *dispatcher = new btCollisionDispatcher(collisionConfiguration);
-  btGImpactCollisionAlgorithm::registerAlgorithm(dispatcher);
-
-  // btDbvtBroadphase is a good general purpose broadphase. .
-  btBroadphaseInterface *overlappingPairCache = new btDbvtBroadphase();
-
-  //the default constraint solver.
-  btSequentialImpulseConstraintSolver *solver = new btSequentialImpulseConstraintSolver;
-  mBtDynamicsWorld =
-    new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
-
-  mBtDynamicsWorld->setGravity(btVector3(0, 0, 0));
-}
-
-BulletDynamics::~BulletDynamics()
-{
-  delete mBtDynamicsWorld;
+  mBulletEngine= be;
 }
 
 void BulletDynamics::addBody(Body *newBody)
 {
-  // Creation of CollisionShape
-  btTriangleMesh *triMesh = new btTriangleMesh(true, true); //true,true);
-
-  // Get the geometry data form the Graspit object
-  std::vector<Triangle> triangles;
-
-  newBody->getGeometryTriangles(&triangles);
-  int numTriangles = triangles.size();
-  Triangle tritemp = triangles.at(0);
-
-  for (int i = 0; i < numTriangles - 1; i = i + 1)
-  {
-    tritemp = triangles.at(i);
-    btScalar v01(tritemp.v1[0]);
-    btScalar v02(tritemp.v1[1]);
-    btScalar v03(tritemp.v1[2]);
-    btScalar v11(tritemp.v2[0]);
-    btScalar v12(tritemp.v2[1]);
-    btScalar v13(tritemp.v2[2]);
-    btScalar v21(tritemp.v3[0]);
-    btScalar v22(tritemp.v3[1]);
-    btScalar v23(tritemp.v3[2]);
-
-    btVector3 v0(v01, v02, v03);
-    btVector3 v1(v11, v12, v13);
-    btVector3 v2(v21, v22, v23);
-    triMesh->btTriangleMesh::addTriangle(v0, v1, v2, true);
-  }
-
-  btCollisionShape *triMeshShape;
-  btScalar mass(0.);
-  btVector3 localInertia(0, 0, 0);
-
-  if (newBody->isDynamic())
-  {
-    mass = ((DynamicBody *)newBody)->getMass(); //mass g
-    mass = mass / 1000; //kg
-    triMeshShape = new btGImpactMeshShape(triMesh);
-    ((btGImpactMeshShape *)triMeshShape)->updateBound();
-    triMeshShape->calculateLocalInertia(mass, localInertia);
-  }
-  else
-  {
-    triMeshShape = new btBvhTriangleMeshShape(triMesh, true, true);
-  }
-
-  //using motionstate is recommended, it provides interpolation capabilities,
-  //and only synchronizes 'active' objects
-  btDefaultMotionState *myMotionState =
-    new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0 , 0)));
-  btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, triMeshShape, localInertia);
-  btRigidBody *body = new btRigidBody(rbInfo);
-
-  body->setFriction(1.0);
-  body->setRollingFriction(1.0);
-
-  // avoid deactive
-  body->setSleepingThresholds(0, 0);
-
-  //add the body to the dynamics world
-  mBtDynamicsWorld->addRigidBody(body);
-
-  mBtLinks.push_back(body);
-  //add the newlink and body to the map
-  btBodyMap.insert(btBodyPair(newBody, body));
+  mBulletEngine->addBody(newBody);
 }
 
 void BulletDynamics::addRobot(Robot *robot)
@@ -148,7 +60,7 @@ void BulletDynamics::addRobot(Robot *robot)
   if (robot->getBase()) {
     btScalar mass(robot->getBase()->getMass());
     btVector3 localInertia(0, 0, 0);
-    if ((btbase = btBodyMap.find(robot->getBase())->second) == NULL) {
+    if ((btbase = mBulletEngine->btBodyMap.find(robot->getBase())->second) == NULL) {
       DBGA("error, base is not in the btBodyMap\n");
     }
     btbase->setMassProps(mass , localInertia);
@@ -170,7 +82,7 @@ void BulletDynamics::addRobot(Robot *robot)
       Joint *baseJoint = dof->getJointList().at(0);
       Link *baseLink = dynamic_cast<Link *>(baseJoint->getDynJoint()->getNextLink());
       DBGP("baseLink->getName(): " << baseLink->getName().toStdString().c_str() << std::endl);
-      btRigidBody *btbaseLink = btBodyMap.find(baseLink)->second;
+      btRigidBody *btbaseLink = mBulletEngine->btBodyMap.find(baseLink)->second;
 
       vec3 baseLinkaxis = baseLink->getProximalJointAxis();
       btVector3 btcbaseLinkaxis(baseLinkaxis.x() , baseLinkaxis.y() , baseLinkaxis.z());
@@ -183,7 +95,7 @@ void BulletDynamics::addRobot(Robot *robot)
 
         Link *currentLink = dynamic_cast<Link *>(joint->getDynJoint()->getNextLink());
 
-        btRigidBody *btcurrentLink = btBodyMap.find(currentLink)->second;
+        btRigidBody *btcurrentLink = mBulletEngine->btBodyMap.find(currentLink)->second;
         vec3 currentLinkaxis = currentLink->getProximalJointAxis();
         btVector3 btcurrentLinkaxis(currentLinkaxis.x() , currentLinkaxis.y() , currentLinkaxis.z());
 
@@ -196,7 +108,7 @@ void BulletDynamics::addRobot(Robot *robot)
                                                            btcurrentLinkaxis,
                                                            -joint->getCouplingRatio() * 2.0);
           //-1.0/joint->getCouplingRatio());
-          mBtDynamicsWorld->addConstraint(newGear);
+          mBulletEngine->mBtDynamicsWorld->addConstraint(newGear);
         }
 
       }
@@ -228,10 +140,10 @@ void BulletDynamics::addChain(KinematicChain *chain, btRigidBody *btbase)
   int jointind = 0;  // keep track current joint index
   for (int l = 0; l < numberLinks; l++) {
 
-    btRigidBody *btcurrentlink = btBodyMap.find(chain->getLink(l))->second;
+    btRigidBody *btcurrentlink = mBulletEngine->btBodyMap.find(chain->getLink(l))->second;
     btRigidBody *btprevlink;
     if (l > 0) {
-      btprevlink = btBodyMap.find(chain->getLink(l - 1))->second;
+      btprevlink = mBulletEngine->btBodyMap.find(chain->getLink(l - 1))->second;
     } else if (l == 0) {
       btprevlink = btbase;
     }
@@ -361,7 +273,7 @@ void BulletDynamics::addChain(KinematicChain *chain, btRigidBody *btbase)
       newjoint->setLimit(min, max);
 
       bool disable_collision_between_rbA_rbB = true;
-      mBtDynamicsWorld->addConstraint(newjoint , disable_collision_between_rbA_rbB);
+      mBulletEngine->mBtDynamicsWorld->addConstraint(newjoint , disable_collision_between_rbA_rbB);
 
     } else if (djtype == DynJoint::UNIVERSAL) {
 
@@ -442,7 +354,7 @@ void BulletDynamics::addChain(KinematicChain *chain, btRigidBody *btbase)
         newjoint->setLimit(3, 0, 0);  // limit the x rotation;
       }
 
-      mBtDynamicsWorld->addConstraint(newjoint, true);
+      mBulletEngine->mBtDynamicsWorld->addConstraint(newjoint, true);
     } else if (djtype == DynJoint::BALL) {
       DBGP(" %d link: " << l << "  type: BALL \n");
       jointind += 3;
@@ -459,7 +371,7 @@ void BulletDynamics::addChain(KinematicChain *chain, btRigidBody *btbase)
 void BulletDynamics::turnOnDynamics()
 {
   // Update BULLET TRANSFORM whenever Dynamics are turned on
-  for (int j = mBtDynamicsWorld->getNumCollisionObjects() - 1; j >= 0 ; j--) {
+  for (int j = mBulletEngine->mBtDynamicsWorld->getNumCollisionObjects() - 1; j >= 0 ; j--) {
     Body *tempbody = mWorld->getBody(j);
     transf temptrans = tempbody->getTran();
 
@@ -472,7 +384,7 @@ void BulletDynamics::turnOnDynamics()
     btScalar ytrans(temptrans.translation().y());
     btScalar ztrans(temptrans.translation().z());
 
-    btCollisionObject *obj = mBtDynamicsWorld->getCollisionObjectArray()[j];
+    btCollisionObject *obj = mBulletEngine->mBtDynamicsWorld->getCollisionObjectArray()[j];
     btRigidBody *body = btRigidBody::upcast(obj);
     body->setCenterOfMassTransform(btTransform(btQuaternion(xrot , yrot , zrot , wrot),
                                                btVector3(xtrans, ytrans, ztrans)));
@@ -507,7 +419,7 @@ int BulletDynamics::stepDynamics()
 {
   double timeStep = 1.0f / 60.f;
 
-  mBtDynamicsWorld->stepSimulation(timeStep, 10);
+  mBulletEngine->mBtDynamicsWorld->stepSimulation(timeStep, 10);
 
   computeNewVelocities(timeStep);
   moveDynamicBodies(mWorld->getTimeStep());
@@ -558,7 +470,7 @@ double BulletDynamics::moveDynamicBodies(double timeStep) {
       double magnitude = dof->getForce() / 10e6;
       if (magnitude != 0)
       {
-        btApplyInternalWrench(dof->getJointList().at(0),  magnitude,  btBodyMap);
+        btApplyInternalWrench(dof->getJointList().at(0),  magnitude,  mBulletEngine->btBodyMap);
       }
 
     }
@@ -571,15 +483,15 @@ double BulletDynamics::moveDynamicBodies(double timeStep) {
         DBGP(" current: j->getVal()" << tempjoint->getVal() << std::endl);
 
         double frictionForce = tempjoint->getFriction() / 10e6;
-        btApplyInternalWrench(tempjoint, frictionForce, btBodyMap);
+        btApplyInternalWrench(tempjoint, frictionForce, mBulletEngine->btBodyMap);
 
         double springForce = -tempjoint->getSpringForce();
-        btApplyInternalWrench(tempjoint, springForce, btBodyMap);
+        btApplyInternalWrench(tempjoint, springForce, mBulletEngine->btBodyMap);
       }
     }
 
     //! Robot Translation and Rotations
-    btRigidBody *btbase = btBodyMap.find(robot->getBase())->second;
+    btRigidBody *btbase = mBulletEngine->btBodyMap.find(robot->getBase())->second;
 
     //! convert the velocity from along the robot's approach direction (+z sticking out of palm) to the world frame.
     transf velocityInWorldFrame = translate_transf(robot->getLinearVelocity() * robot->getApproachTran()) * robot->getTran();
@@ -602,6 +514,7 @@ double BulletDynamics::moveDynamicBodies(double timeStep) {
 
     btbase->setAngularVelocity(angularVelocity);
 
+
   }
   return 0;
 }
@@ -620,9 +533,9 @@ in the next iteration.
 int BulletDynamics::computeNewVelocities(double timeStep) {
   Q_UNUSED(timeStep);
 
-  for (int j = mBtDynamicsWorld->getNumCollisionObjects() - 1; j >= 0 ; j--)
+  for (int j = mBulletEngine->mBtDynamicsWorld->getNumCollisionObjects() - 1; j >= 0 ; j--)
   {
-    btCollisionObject *obj = mBtDynamicsWorld->getCollisionObjectArray()[j];
+    btCollisionObject *obj = mBulletEngine->mBtDynamicsWorld->getCollisionObjectArray()[j];
     btRigidBody *body = btRigidBody::upcast(obj);
 
     btTransform feedbacktransform = body->getCenterOfMassTransform();

@@ -56,6 +56,7 @@ class GraspableBody;
 class WorldElement;
 class Tendon;
 class DynamicsEngine;
+class BulletEngine;
 
 typedef std::vector<position> Neighborhood;
 
@@ -157,6 +158,7 @@ class World : public QObject {
 
     //! A pointer to the collision detection instance
     CollisionInterface *mCollisionInterface;
+    CollisionInterface *mBulletCollisionInterface;
 
     //! A pointer to the dynamics engine
     DynamicsEngine *mDynamicsEngine;
@@ -193,6 +195,11 @@ class World : public QObject {
 
     //! Static callback routine for the dynamic operations idle sensor.
     static void dynamicsCB(void *data, SoSensor *sensor);
+
+#ifdef BULLET_DYNAMICS
+    BulletEngine *bulletEngine;
+#endif
+
 
     friend class Body;
     friend class DynamicBody;

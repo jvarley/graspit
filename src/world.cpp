@@ -76,6 +76,8 @@
 #endif
 #ifdef BULLET_DYNAMICS
 #include "dynamics/bulletDynamics.h"
+#include "bulletEngine.h"
+#include "Collision/Bullet/bulletCollision.h"
 #endif
 
 //simulations of arches with John Ochsendorf
@@ -136,7 +138,9 @@ World::World(QObject *parent, const char *name) :
   mCollisionInterface = new PQPCollision();
 #endif
 #ifdef GRASPIT_COLLISION
+  #ifndef BULLET_DYNAMICS
   mCollisionInterface = new GraspitCollision();
+  #endif
 #endif
 
   IVRoot = new SoSeparator;
@@ -152,9 +156,14 @@ World::World(QObject *parent, const char *name) :
 #ifdef GRASPIT_DYNAMICS
   mDynamicsEngine = new GraspitDynamics(this);
 #endif
+
 #ifdef BULLET_DYNAMICS
-  mDynamicsEngine = new BulletDynamics(this);
+  bulletEngine = new BulletEngine();
+  mDynamicsEngine = new BulletDynamics(this, bulletEngine);
+  mCollisionInterface = new BulletCollision(this, bulletEngine);
+  //mCollisionInterface = new GraspitCollision();
 #endif
+
 }
 
 /*! Saves the global settings and parameters and deletes the world
@@ -173,6 +182,10 @@ World::~World()
   }
   free(cofTable);
   free(kcofTable);
+
+#ifdef BULLET_DYNAMICS
+    delete bulletEngine;
+#endif
 
   for (i = numRobots - 1; i >= 0; i--) {
     destroyElement(robotVec[i]);
@@ -1520,8 +1533,20 @@ vec3
 World::pointDistanceToBody(position p, Body *b, vec3 *normal)
 {
   PROF_TIMER_FUNC(WORLD_POINT_TO_BODY_DISTANCE);
+  position bullet_cp; vec3 bullet_cn;
+  //mBulletCollisionInterface->pointToBodyDistance(b, p, bullet_cp, bullet_cn);
   position cp; vec3 cn;
   mCollisionInterface->pointToBodyDistance(b, p, cp, cn);
+
+//  std::cout << "BULLET Point" << std::endl;
+//  std::cout << bullet_cp << std::endl;
+//  std::cout << "Graspit Point" << std::endl;
+//  std::cout << cp << std::endl;
+
+//  std::cout << "BULLET Normal " << std::endl;
+//  std::cout << bullet_cn << std::endl;
+//  std::cout << "Graspit Normal" << std::endl;
+//  std::cout << cn << std::endl << std::endl;
   if (normal) {
     *normal = cn;
   }

@@ -17,16 +17,17 @@
 // You should have received a copy of the GNU General Public License
 // along with GraspIt!.  If not, see <http://www.gnu.org/licenses/>.
 //
-// Author(s): Matei T. Ciocarlie, Jake Varley
+// Author(s): Jake Varley
 //
 // $Id:$
 //
 //######################################################################
 
-#ifndef BULLETDYNAMICS_HXX
-#define BULLETDYNAMICS_HXX
+#ifndef BULLETENGINE_HXX
+#define BULLETENGINE_HXX
 
-#include "LinearMath/btAlignedObjectArray.h"
+#include <LinearMath/btAlignedObjectArray.h>
+#include "BulletCollision/CollisionShapes/btConvexHullShape.h"
 
 #include "dynamicsEngine.h"
 #include "joint.h"
@@ -34,26 +35,29 @@
 class btDiscreteDynamicsWorld;
 class btRigidBody;
 class btHingeConstraint;
-class World;
-class KinematicChain;
 class BulletEngine;
+class Body;
 
-class BulletDynamics : public DynamicsEngine {
+typedef std::pair<Body *, btRigidBody *> bodybtRigidBodyPair;
+typedef std::pair<btRigidBody*, Body *> btRigidBodyBodyPair;
+typedef std::pair<Body *, btConvexHullShape *> btBody2ConvexPair;
+typedef std::pair<Body *, btHingeConstraint *> btJointPair;
+
+class BulletEngine {
   public:
-    explicit BulletDynamics(World *world, BulletEngine *be);
-    void addBody(Body *newBody);
-    void addRobot(Robot *robot);
-    void addChain(KinematicChain *chain, btRigidBody *btbase);
-    void turnOnDynamics();
-    void turnOffDynamics();
-    int stepDynamics();
-    double moveDynamicBodies(double timeStep);
-    int computeNewVelocities(double timeStep);
-    void btApplyInternalWrench(Joint *activeJoint, double magnitude, std::map<Body *, btRigidBody *> btBodyMap);
+    explicit BulletEngine();
+    ~BulletEngine();
 
-  private:
-    World *mWorld;
-    BulletEngine *mBulletEngine;
+    void addBody(Body *newBody);
+
+    btDiscreteDynamicsWorld *mBtDynamicsWorld;
+    btAlignedObjectArray<btRigidBody *> mBtLinks;
+
+    std::map<Body *, btRigidBody *> btBodyMap;
+    std::map<btRigidBody *, Body *> bodyMap;
+    std::map<Body *, btConvexHullShape *> btConvexHullMap;
+
+    std::map<Joint *, btHingeConstraint *> btJointMap;
 };
 
 #endif
