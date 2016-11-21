@@ -96,43 +96,14 @@ BulletCollision::cloneBody(Body *clone, const Body *original)
 void
 BulletCollision::setBodyTransform(Body *body, const transf &t)
 {
+  mBulletEngine->movedBodiesSinceLastCollisionDetection = true;
   btRigidBody *btbody =  mBulletEngine->btBodyMap.find(const_cast<Body*>(body))->second;
-
-    btTransform feedbacktransform = btbody->getCenterOfMassTransform();
-    btQuaternion btrotation = feedbacktransform.getRotation();
-    btVector3 bttranslation = feedbacktransform.getOrigin();
-
-    Quaternion *rot = new Quaternion(btrotation.getAngle() ,
-                                     vec3(btrotation.getAxis()[0] ,
-                                          btrotation.getAxis()[1] ,
-                                          btrotation.getAxis()[2]));
-    vec3 *transl = new vec3(bttranslation.getX() , bttranslation.getY() , bttranslation.getZ());
-    Quaternion rotfix = *rot;
-    vec3 translfix = *transl;
-    transf *temptrans = new transf(rotfix , translfix) ;
-
-    std::cout << "Old bullet pose" << *temptrans << std::endl;
+  btConvexHullShape *bthull =  mBulletEngine->btConvexHullMap.find(const_cast<Body*>(body))->second;
 
   const btQuaternion q(t.rotation().x,t.rotation().y,t.rotation().z,t.rotation().w) ;
   const btVector3& c = btVector3(t.translation().x(),t.translation().y(),t.translation().z());
   btTransform btTrans(q,c);
   btbody->setWorldTransform(btTrans);
-
-    btTransform feedbacktransform2 = btbody->getCenterOfMassTransform();
-    btQuaternion btrotation2 = feedbacktransform2.getRotation();
-    btVector3 bttranslation2 = feedbacktransform2.getOrigin();
-
-    Quaternion *rot2 = new Quaternion(btrotation2.getAngle() ,
-                                     vec3(btrotation2.getAxis()[0] ,
-                                          btrotation2.getAxis()[1] ,
-                                          btrotation2.getAxis()[2]));
-    vec3 *transl2 = new vec3(bttranslation2.getX() , bttranslation2.getY() , bttranslation2.getZ());
-    Quaternion rotfix2= *rot2;
-    vec3 translfix2 = *transl2;
-    transf *temptrans2 = new transf(rotfix2 , translfix2) ;
-
-   std::cout << "desired Graspit pose" << t << std::endl;
-    std::cout << "New bullet pose" << *temptrans2 << std::endl;
 }
 
 
@@ -140,17 +111,21 @@ int
 BulletCollision::allCollisions(DetectionType type, CollisionReport *report,
                                const std::vector<Body *> *interestList)
 {
-//  double timeStep = 1.0f / 60.f;
-//  if(!mWorld->dynamicsAreOn()){
-//      mBulletEngine->mBtDynamicsWorld->stepSimulation(timeStep, 10);
-//    }
+
+  if ( mBulletEngine->movedBodiesSinceLastCollisionDetection && !mWorld->dynamicsAreOn())
+    {
+      mBulletEngine->mBtDynamicsWorld->performDiscreteCollisionDetection();
+      mBulletEngine->movedBodiesSinceLastCollisionDetection = false;
+    }
+
+
 
   int manifold_count = 0;
-  //Todo we currently ignore interest list
+
   int numManifolds = mBulletEngine->mBtDynamicsWorld->getDispatcher()->getNumManifolds();
-  std::cout << "numManifolds: " << numManifolds << std::endl;
+
   for (int i=0;i<numManifolds;i++)
-  {
+    {
       btPersistentManifold* contactManifold =  mBulletEngine->mBtDynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
 
       btCollisionObject* obA = const_cast<btCollisionObject*>(contactManifold->getBody0());
@@ -161,30 +136,32 @@ BulletCollision::allCollisions(DetectionType type, CollisionReport *report,
       if(interestList)
         {
           if((std::find(interestList->begin(), interestList->end(), b1) != interestList->end() &&
-             std::find(interestList->begin(), interestList->end(), b2) == interestList->end()) ||
+              std::find(interestList->begin(), interestList->end(), b2) == interestList->end()) ||
              (std::find(interestList->begin(), interestList->end(), b1) == interestList->end() &&
-                          std::find(interestList->begin(), interestList->end(), b2) != interestList->end())) {
-              report->push_back(CollisionData(b1, b2));
-              manifold_count ++;
+              std::find(interestList->begin(), interestList->end(), b2) != interestList->end())) {
 
-              std::cout << "We have found a contact between: " << b1->name() << " " << b2->name() << std::endl;
               int numContacts = contactManifold->getNumContacts();
-              std::cout << "numContacts: " << numContacts << std::endl;
               for (int j=0;j<numContacts;j++)
                 {
+                  if (j==0)
+                    {
+                      if(report)
+                        {
+                          report->push_back(CollisionData(b1, b2));
+                        }
+                      manifold_count ++;
+                    }
+
                   btManifoldPoint& pt = contactManifold->getContactPoint(j);
-                  std::cout << "Contact Dist: " << pt.getDistance() << std::endl;
                 }
 
-          } else {
-             std::cout << "Collision Not in interest list" << std::endl;
-          }
+            }
         }
       else{
           manifold_count = numManifolds;
         }
 
-   }
+    }
 
   return manifold_count;
 }
@@ -193,12 +170,15 @@ int
 BulletCollision::allContacts(CollisionReport *report, double threshold,
                              const std::vector<Body *> *interestList)
 {
-  if(!mWorld->dynamicsAreOn()){
-      double timeStep = 1.0f / 60.f;
-      mBulletEngine->mBtDynamicsWorld->stepSimulation(timeStep, 10);
+
+  if ( mBulletEngine->movedBodiesSinceLastCollisionDetection && !mWorld->dynamicsAreOn())
+    {
+      mBulletEngine->mBtDynamicsWorld->performDiscreteCollisionDetection();
+      mBulletEngine->movedBodiesSinceLastCollisionDetection = false;
     }
 
   int numManifolds = mBulletEngine->mBtDynamicsWorld->getDispatcher()->getNumManifolds();
+  int num_contacts = 0;
   for (int i=0;i<numManifolds;i++)
     {
       btPersistentManifold* contactManifold =  mBulletEngine->mBtDynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
@@ -219,26 +199,85 @@ BulletCollision::allContacts(CollisionReport *report, double threshold,
               const btVector3& ptB = pt.getPositionWorldOnB();
               const btVector3& normalOnB = pt.m_normalWorldOnB;
 
-              cd.b1_pos = position(ptA.x(),ptA.y(), ptA.z());
-              cd.b2_pos = position(ptB.x(),ptB.y(), ptB.z());
-              cd.b1_normal = vec3(-pt.m_normalWorldOnB.x(), -pt.m_normalWorldOnB.y(), -pt.m_normalWorldOnB.z());
+              //need contact in body reference frames.
+              //                cd.b1_pos = position(ptA.x(),ptA.y(), ptA.z())  - b1->getTran().translation();
+              //                cd.b2_pos =  position(ptB.x(),ptB.y(), ptB.z())  - b2->getTran().translation();
+              position mean_pos = position( (ptA.x()+ ptB.x())/2.0,
+                                            (ptA.y()+ ptB.y())/2.0,
+                                            (ptA.z()+ ptB.z())/2.0);
+              cd.b1_pos = mean_pos - b1->getTran().translation();
+              cd.b2_pos =  mean_pos  - b2->getTran().translation();
+              cd.b1_normal = vec3(-normalOnB.x(),- normalOnB.y(), -normalOnB.z());
               cd.b2_normal = vec3(normalOnB.x(), normalOnB.y(), normalOnB.z());
               cd.distSq = pt.getDistance()*pt.getDistance();
 
+              report->push_back(CollisionData(b1, b2));
               report->back().contacts.push_back(cd);
+              num_contacts++;
             }
         }
     }
 
-  return numManifolds;
+  return num_contacts;
 }
 
 int
 BulletCollision::contact(ContactReport *report, double threshold,
                          const Body *body1, const Body *body2)
 {
-  int contacts = 0;
-  return contacts;
+
+  if ( mBulletEngine->movedBodiesSinceLastCollisionDetection && !mWorld->dynamicsAreOn())
+    {
+
+      mBulletEngine->mBtDynamicsWorld->performDiscreteCollisionDetection();
+      mBulletEngine->movedBodiesSinceLastCollisionDetection = false;
+    }
+
+  int numManifolds = mBulletEngine->mBtDynamicsWorld->getDispatcher()->getNumManifolds();
+  int num_contacts = 0;
+  for (int i=0;i<numManifolds;i++)
+    {
+      btPersistentManifold* contactManifold =  mBulletEngine->mBtDynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
+      btCollisionObject* obA = const_cast<btCollisionObject*>(contactManifold->getBody0());
+      btCollisionObject* obB = const_cast<btCollisionObject*>(contactManifold->getBody1());
+      Body *b1 = mBulletEngine->bodyMap.find(static_cast<btRigidBody*>(obA))->second;
+      Body *b2 = mBulletEngine->bodyMap.find(static_cast<btRigidBody*>(obB))->second;
+      if((b1 == body1 && b2 == body2 )|| (b1 == body2 && b2 == body1 ))
+        {
+          int numContacts = contactManifold->getNumContacts();
+          for (int j=0;j<numContacts;j++)
+            {
+              btManifoldPoint& pt = contactManifold->getContactPoint(j);
+              //if (pt.getDistance()<0.f)
+              // {
+              ContactData cd;
+              const btVector3& ptA = pt.getPositionWorldOnA();
+              const btVector3& ptB = pt.getPositionWorldOnB();
+              const btVector3& normalOnB = pt.m_normalWorldOnB;
+
+              //need contact in body reference frames.
+              //                cd.b1_pos = position(ptA.x(),ptA.y(), ptA.z())  - b1->getTran().translation();
+              //                cd.b2_pos =  position(ptB.x(),ptB.y(), ptB.z())  - b2->getTran().translation();
+              position mean_pos = position( (ptA.x()+ ptB.x())/2.0,
+                                            (ptA.y()+ ptB.y())/2.0,
+                                            (ptA.z()+ ptB.z())/2.0);
+              cd.b1_pos = mean_pos - b1->getTran().translation();
+              cd.b2_pos =  mean_pos  - b2->getTran().translation();
+              cd.b1_normal = vec3(-normalOnB.x(),- normalOnB.y(), -normalOnB.z());
+              cd.b2_normal = vec3(normalOnB.x(), normalOnB.y(), normalOnB.z());
+              cd.distSq = pt.getDistance()*pt.getDistance();
+
+              report->push_back(cd);
+              num_contacts++;
+              //break;
+              // }
+            }
+        }
+
+    }
+
+  return num_contacts;
+
 }
 
 double
@@ -259,20 +298,15 @@ BulletCollision::pointToBodyDistance(const Body *body1, position point,
   btPointCollector gjkOutput;
   btGjkPairDetector::ClosestPointInput input;
 
-  //Todo: Not sure this is the correct Transform
-  //input.m_transformB = btbodyB->getCenterOfMassTransform();
   input.m_transformA = trans;
   input.m_transformB = btbodyB->getWorldTransform();
 
   convexConvex.getClosestPoints(input ,gjkOutput,0);
 
-  btVector3 endPt = gjkOutput.m_pointInWorld +
-      gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
-
-  closestPoint.set(endPt.x(), endPt.y(), endPt.z());
-  closestNormal.set(gjkOutput.m_normalOnBInWorld.x(),
-                    gjkOutput.m_normalOnBInWorld.y(),
-                    gjkOutput.m_normalOnBInWorld.z());
+  closestPoint.set(gjkOutput.m_pointInWorld.x(), gjkOutput.m_pointInWorld.y(), gjkOutput.m_pointInWorld.z());
+  closestNormal.set(-gjkOutput.m_normalOnBInWorld.x(),
+                    -gjkOutput.m_normalOnBInWorld.y(),
+                    -gjkOutput.m_normalOnBInWorld.z());
 
   return gjkOutput.m_distance;
 }
@@ -282,7 +316,6 @@ BulletCollision::bodyToBodyDistance(const Body *body1, const Body *body2,
                                     position &p1, position &p2)
 {
 
-  //  //Todo Better way than const_cast?
   btRigidBody *btbody1 =  mBulletEngine->btBodyMap.find(const_cast<Body*>(body1))->second;
   btRigidBody *btbody2 =  mBulletEngine->btBodyMap.find(const_cast<Body*>(body2))->second;
 
@@ -295,7 +328,6 @@ BulletCollision::bodyToBodyDistance(const Body *body1, const Body *body2,
   btPointCollector gjkOutput;
   btGjkPairDetector::ClosestPointInput input;
 
-  //Todo: Not sure this is the correct Transform
   input.m_transformA = btbody1->getCenterOfMassTransform();
   input.m_transformB = btbody2->getCenterOfMassTransform();
 

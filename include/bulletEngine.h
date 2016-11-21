@@ -58,6 +58,9 @@ class BulletEngine {
     std::map<Body *, btConvexHullShape *> btConvexHullMap;
 
     std::map<Joint *, btHingeConstraint *> btJointMap;
+
+    bool movedBodiesSinceLastCollisionDetection;
+
 };
 
 #endif

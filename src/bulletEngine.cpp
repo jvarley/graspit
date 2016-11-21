@@ -38,7 +38,8 @@
 #include "body.h"
 #include "triangle.h"
 
-BulletEngine::BulletEngine()
+BulletEngine::BulletEngine():
+  movedBodiesSinceLastCollisionDetection(true)
 {
 
   // collision configuration contains default setup for memory, collision setup.
@@ -132,7 +133,6 @@ void BulletEngine::addBody(Body *newBody)
     new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0 , 0)));
   btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, triMeshShape, localInertia);
   btRigidBody *body = new btRigidBody(rbInfo);
-
   body->setFriction(1.0);
   body->setRollingFriction(1.0);
 
