@@ -143,12 +143,7 @@ void ContactExaminerDlg::saveButton_clicked()
 {
 	QString fn = QFileDialog::getSaveFileName( this, "Select filename", 
 		QString(getenv("GRASPIT"))+QString("/models/virtual"),"Virtual Grasp Files (*.vgr)" );
-	if ( !fn.isEmpty() ) {
-		if (fn.section('.',1).isEmpty())
-			fn.append(".vgr");
-	} else {
-		return;
-	}
+	
 
 	FILE *fp = fopen(fn.latin1(), "w");
 	if (!fp) {

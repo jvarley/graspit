@@ -39,6 +39,8 @@ class Body;
 class SoSeparator;
 class SoMaterial;
 class Matrix;
+class TiXmlElement;
+class QString;
 
 #ifdef ARIZONA_PROJECT_ENABLED
 #include <arizona/Arizona_Raw_Exp.h>
@@ -508,8 +510,10 @@ public:
 
 	//! Writes this contact, including friction edges, to a file
 	void writeToFile(FILE *fp);
+	
 	//! Loads this contact, including friction edges, from a file
 	void readFromFile(FILE *fp);
+	void readFromFile(const TiXmlElement *root, QString rootPath);
 
 	//! Wrench computation is done in world coordinates considers the fact that we have no object
 	void computeWrenches(bool useObjectData = false, bool simply = false);

@@ -34,6 +34,7 @@
 #include "dmalloc.h"
 #endif
 
+#include <QString>
 #include <Inventor/nodes/SoCone.h>
 #include <Inventor/nodes/SoCoordinate3.h>
 #include <Inventor/nodes/SoCylinder.h>
@@ -44,6 +45,7 @@
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoSphere.h>
 
+#include "tinyxml.h"
 #include "matvec3D.h"
 #include "contact.h"
 #include "world.h"
@@ -1465,6 +1467,7 @@ VirtualContact::mark(bool m)
 	it's on, location, normal, friction edges and coefficient) to
 	a file.
 */
+/*
 void
 VirtualContact::writeToFile(FILE *fp)
 {
@@ -1496,13 +1499,51 @@ VirtualContact::writeToFile(FILE *fp)
 	//cof
 	fprintf(fp,"%f\n",cof);
 }
+*/
+
+/*! Saves all the info needed for this contact (what body and link 
+	it's on, location, normal, friction edges and coefficient) to
+	a file.
+*/
+void
+VirtualContact::writeToFile(FILE *fp)
+{
+  fprintf(fp, "<virtual_contact>\n");
+  fprintf(fp, "\t<finger_number>%d</finger_number>\n", mFingerNum);
+  fprintf(fp, "\t<link_number>%d</link_number>\n", mLinkNum);
+  fprintf(fp, "\t<num_friction_edges>%d</num_friction_edges>\n", numFrictionEdges);
+  fprintf(fp, "\t<friction_edges>\n");
+
+  for (int i=0; i<numFrictionEdges; i++) 
+  {
+    fprintf(fp, "\t\t<friction_edge>");
+      for (int j=0; j<6; j++)
+	{
+	  fprintf(fp,"%f ", frictionEdges[6*i+j]);
+	}
+			
+    fprintf(fp, "</friction_edge>\n");
+  }
+  fprintf(fp, "\t</friction_edges>\n");
+  fprintf(fp, "\t<location>%f %f %f</location>\n", loc.x(), loc.y(), loc.z());
+  Quaternion q = frame.rotation();
+  fprintf(fp, "\t<!--w, x, y, z -->\n");
+  fprintf(fp, "\t<rotation>%f %f %f %f</rotation>\n",q.w, q.x, q.y, q.z );
+  vec3 t = frame.translation();
+  fprintf(fp, "\t<translation>%f %f %f</translation>\n", t.x(), t.y(), t.z());
+  fprintf(fp, "\t<normal>%f %f %f</normal>\n", normal.x(), normal.y(), normal.z());
+  fprintf(fp, "\t<cof>%f</cof>\n", cof);
+  fprintf(fp, "<virtual_contact>\n");
+}
 
 /*! Loads all the info for this contact from a file previously written
 	by VirtualContact::writeToFile(...)
 */
+
 void
 VirtualContact::readFromFile(FILE *fp)
 {
+  std::cout << "In ORIGINAL readFromFile" << std::endl;
 	float v,x,y,z;
 
 	//finger and link number
@@ -1561,6 +1602,119 @@ VirtualContact::readFromFile(FILE *fp)
 	return;
 	}
 	cof = v;
+}
+
+void
+VirtualContact::readFromFile(const TiXmlElement * root, QString rootPath)
+{
+  std::cout << "Reading in Virtual Contact" << std::endl;
+  //const TiXmlElement *child = root->FirstChildElement();
+  const TiXmlElement *child = root;
+  const TiXmlElement * xmlElement;
+  const TiXmlElement * frictionEdgesElement;
+  QString elementType;
+  bool ok, ok1,ok2,ok3, ok4;
+    while(child !=NULL){
+      elementType = child->Value();
+      std::cout << "Element Type: " << elementType.toStdString().c_str() << std::endl;
+      if(elementType.isNull()){
+	QTWARNING("Empty Element Type");
+      }
+      if(elementType == "virtual_contact")
+	{
+	  xmlElement = findXmlElement(child,"finger_number");
+	  mFingerNum = QString(xmlElement->GetText()).toDouble(&ok);
+
+	  xmlElement = findXmlElement(child,"link_number");
+	  mLinkNum = QString(xmlElement->GetText()).toDouble(&ok);
+
+	  xmlElement = findXmlElement(child,"num_friction_edges");
+	  numFrictionEdges = QString(xmlElement->GetText()).toDouble(&ok);
+
+	  frictionEdgesElement = findXmlElement(child, "friction_edges");
+	  xmlElement = findXmlElement(frictionEdgesElement, "friction_edge");
+	  for (int i=0; i<numFrictionEdges; i++) 
+	  {
+	    std::cout << "friction edge: " << i << std::endl;
+	   
+	   QString friction_edge = xmlElement->GetText();
+	   std::cout << "friction_edge: " << friction_edge.toStdString().c_str() << std::endl;
+	   QStringList l = QStringList::split(' ', friction_edge);
+	   
+	   for (int j=0; j<6; j++) 
+	   {
+	     std::cout << j << std::endl;
+	     std::cout << l[j].toDouble(&ok1) << std::endl;
+	     
+	       frictionEdges[6*i+j] = l[j].toDouble(&ok1);
+	   }
+	   xmlElement = xmlElement->NextSiblingElement();
+	  }
+
+	   xmlElement = findXmlElement(child, "location");
+	   QString location = xmlElement->GetText();
+	   location = location.simplifyWhiteSpace().stripWhiteSpace();
+	   QStringList l = QStringList::split(' ', location);
+	   std::cout << "location: " <<  location.toStdString().c_str() << std::endl;
+	   if(l.count()!=3){
+	     QTWARNING("Invalid Location");
+	     return;
+	   }
+
+	   loc = position(l[0].toDouble(&ok1),l[1].toDouble(&ok2),l[2].toDouble(&ok3));
+
+	   xmlElement = findXmlElement(child, "rotation");
+	   QString rotation = xmlElement->GetText();
+	   rotation = rotation.simplifyWhiteSpace().stripWhiteSpace();
+	   l = QStringList::split(' ', rotation);
+	   if(l.count()!=4){
+	     QTWARNING("Invalid Rotation");
+	     return;
+	   }
+	   Quaternion q;
+	   q.set(l[0].toDouble(&ok1),
+		 l[1].toDouble(&ok2),
+		 l[2].toDouble(&ok3),
+		 l[3].toDouble(&ok4));
+
+	   
+	   xmlElement = findXmlElement(child, "translation");
+	   QString translation = xmlElement->GetText();
+	   translation = translation.simplifyWhiteSpace().stripWhiteSpace();
+	   l = QStringList::split(' ', translation);
+	   if(l.count()!=3){
+	     QTWARNING("Invalid Translation");
+	     return;
+	   }
+	   vec3 t;
+	   t.set(l[0].toDouble(&ok1),
+		 l[1].toDouble(&ok2),
+		 l[2].toDouble(&ok3));
+
+	   std::cout << "setting frame" << std::endl;
+	   frame.set(q,t);
+
+	   xmlElement = findXmlElement(child, "normal");
+	   QString normal_str = xmlElement->GetText();
+	   normal_str = normal_str.simplifyWhiteSpace().stripWhiteSpace();
+	   l = QStringList::split(' ', normal_str);
+	   if(l.count()!=3){
+	     QTWARNING("Invalid Normal");
+	     return;
+	   }
+	   
+	   normal.set(l[0].toDouble(&ok1),
+		 l[1].toDouble(&ok2),
+		 l[2].toDouble(&ok3));
+
+	  xmlElement = findXmlElement(child,"cof");
+	  cof = QString(xmlElement->GetText()).toDouble(&ok);
+
+	  	  
+	  
+    }
+      child = child->NextSiblingElement();
+    }
 }
 
 /*! Sets objDistance to be the vector from the contact to the closest
