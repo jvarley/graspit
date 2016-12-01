@@ -35,6 +35,8 @@
 #include <BulletDynamics/ConstraintSolver/btGearConstraint.h>
 #include "LinearMath/btConvexHullComputer.h"
 
+#include "Collision/Bullet/triangleDistance.h"
+
 #include "body.h"
 #include "triangle.h"
 
@@ -83,6 +85,11 @@ void BulletEngine::addBody(Body *newBody)
 
   std::vector<btVector3> points;
 
+
+
+
+
+
   for (int i = 0; i < numTriangles - 1; i = i + 1)
   {
     tritemp = triangles.at(i);
@@ -106,6 +113,19 @@ void BulletEngine::addBody(Body *newBody)
     points.push_back(v2);
   }
 
+  float* dPoints, *dResults;
+  int numElems = sizeof(float) * points.size() * 4;
+  cudamalloc((void**)dPoints, sizeof(float) * points.size() * sizeof(btVector3), CUDA_DEVICE);
+  cudamalloc((void**)dResults, sizeof(float) * points.size() * 4, CUDA_DEVICE);
+  cudamemcpy((float*) &points, dPoints, sizeof(float) * points.size() * sizeof(btVector3), CUDA_HOST_TO_DEVICE);
+
+  int numBlocks = ((float)numElems)/1024.0;
+  computeTriangleStuff<<numBlocks, 1, 1, 1024, 1, 1>>(dPoints, dResults, numElems, x, y, z, qx, qy, qz);
+
+  std::vector<float> results(numElems);
+
+  cudamemcpy((float**) &results, dResults, size, CUDA_DEVICE_TO_HOST);
+
   btConvexHullComputer convexUtil;
   convexUtil.compute(&points[0].getX(), sizeof(btVector3), points.size(), 0,0);
   btConvexHullShape *hull = new btConvexHullShape(&(convexUtil.vertices[0].getX()), convexUtil.vertices.size(), sizeof(btVector3));
@@ -121,6 +141,7 @@ void BulletEngine::addBody(Body *newBody)
     triMeshShape = new btGImpactMeshShape(triMesh);
     ((btGImpactMeshShape *)triMeshShape)->updateBound();
     triMeshShape->calculateLocalInertia(mass, localInertia);
+    //std::cout << "localInertia: " << localInertia.x() << " " << localInertia.y() << " " << localInertia.z() << std::endl;
   }
   else
   {
@@ -138,6 +159,7 @@ void BulletEngine::addBody(Body *newBody)
 
   // avoid deactive
   body->setSleepingThresholds(0, 0);
+  body->setContactProcessingThreshold(0);
 
   //add the body to the dynamics world
   mBtDynamicsWorld->addRigidBody(body);

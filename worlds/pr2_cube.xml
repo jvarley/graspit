@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<world>
+	<graspableBody>
+		<filename>models/objects/cube.xml</filename>
+		<transform>
+			<fullTransform>(+1 +0 +0 +0)[+57.1368 +5.16072 +0]</fullTransform>
+		</transform>
+	</graspableBody>
+	<robot>
+		<filename>models/robots/pr2_gripper/pr2_gripper_2010.xml</filename>
+		<dofValues>+0.523599 </dofValues>
+		<transform>
+			<fullTransform>(+1 +0 +0 +0)[-118.266 +6.65245 +0]</fullTransform>
+		</transform>
+	</robot>
+	<camera>
+		<position>+87.265 +1.90735e-06 +330.674</position>
+		<orientation>+0 +0 +0 +1</orientation>
+		<focalDistance>+317.966</focalDistance>
+	</camera>
+</world>

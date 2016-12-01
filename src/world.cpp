@@ -1533,23 +1533,19 @@ vec3
 World::pointDistanceToBody(position p, Body *b, vec3 *normal)
 {
   PROF_TIMER_FUNC(WORLD_POINT_TO_BODY_DISTANCE);
-  position bullet_cp; vec3 bullet_cn;
-  //mBulletCollisionInterface->pointToBodyDistance(b, p, bullet_cp, bullet_cn);
   position cp; vec3 cn;
   mCollisionInterface->pointToBodyDistance(b, p, cp, cn);
 
-//  std::cout << "BULLET Point" << std::endl;
-//  std::cout << bullet_cp << std::endl;
-//  std::cout << "Graspit Point" << std::endl;
-//  std::cout << cp << std::endl;
-
-//  std::cout << "BULLET Normal " << std::endl;
-//  std::cout << bullet_cn << std::endl;
-//  std::cout << "Graspit Normal" << std::endl;
-//  std::cout << cn << std::endl << std::endl;
   if (normal) {
     *normal = cn;
   }
+
+//  std::cout << "p:" << p << std::endl;
+//  std::cout << "cp: " << cp << std::endl;
+//  std::cout << "cn: " << cn << std::endl;
+
+//  std::cout << "cp-p: " << cp-p << std::endl;
+
   return cp - p;
 }
 
@@ -1757,11 +1753,11 @@ World::findAllContacts()
   CollisionReport report;
   int numContacts;
   numContacts = mCollisionInterface->allContacts(&report, Contact::THRESHOLD, NULL);
+
   DBGP("found " << numContacts << " contacts. Adding...");
   for (int i = 0; i < numContacts; i++) {
-    addContacts(report[i].first, report[i].second, report[i].contacts, softContactsAreOn());
-    DBGP(report[i].first->getName().toStdString().c_str() << " - " << report[i].second->getName().toStdString().c_str());
-  }
+      addContacts(report[i].first, report[i].second, report[i].contacts, softContactsAreOn());
+    }
 }
 
 

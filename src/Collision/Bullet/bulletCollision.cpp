@@ -68,6 +68,7 @@ BulletCollision::activatePair(const Body *body1, const Body *body2, bool active)
 bool
 BulletCollision::isActive(const Body *body1, const Body *body2)
 {
+
 }
 
 bool
@@ -78,19 +79,41 @@ BulletCollision::addBody(Body *body,  bool)
 
 bool BulletCollision::updateBodyGeometry(Body *body, bool)
 {
-
+  removeBody(body);
+  addBody(body);
 }
 
 void
 BulletCollision::removeBody(Body *body)
 {
-  return;
+
+  std::map<Body *, btRigidBody *>::iterator btBodyIter =  mBulletEngine->btBodyMap.find(const_cast<Body*>(body));
+  btRigidBody *btbody =  (*btBodyIter).second;
+
+
+  std::map<Body *, btConvexHullShape *>::iterator cHullIter = mBulletEngine->btConvexHullMap.find(const_cast<Body*>(body));
+  btConvexHullShape *bthull =  (*cHullIter).second;
+
+
+  std::map<btRigidBody *, Body *>::iterator bodyIter = mBulletEngine->bodyMap.find(btbody);
+
+  mBulletEngine->bodyMap.erase(bodyIter);
+  mBulletEngine->btConvexHullMap.erase(cHullIter);
+  mBulletEngine->btBodyMap.erase(btBodyIter);
+
+  mBulletEngine->mBtDynamicsWorld->removeRigidBody(btbody);
+
 }
 
 void
 BulletCollision::cloneBody(Body *clone, const Body *original)
 {
+  btRigidBody *btbody =  mBulletEngine->btBodyMap.find(const_cast<Body*>(original))->second;
+  btConvexHullShape *btcHull =  mBulletEngine->btConvexHullMap.find(const_cast<Body*>(original))->second;
 
+  mBulletEngine->btBodyMap.insert(bodybtRigidBodyPair(clone, btbody));
+  mBulletEngine->bodyMap.insert(btRigidBodyBodyPair(btbody, clone));
+  mBulletEngine->btConvexHullMap.insert(btBody2ConvexPair(clone, btcHull));
 }
 
 void
@@ -200,13 +223,13 @@ BulletCollision::allContacts(CollisionReport *report, double threshold,
               const btVector3& normalOnB = pt.m_normalWorldOnB;
 
               //need contact in body reference frames.
-              //                cd.b1_pos = position(ptA.x(),ptA.y(), ptA.z())  - b1->getTran().translation();
-              //                cd.b2_pos =  position(ptB.x(),ptB.y(), ptB.z())  - b2->getTran().translation();
-              position mean_pos = position( (ptA.x()+ ptB.x())/2.0,
-                                            (ptA.y()+ ptB.y())/2.0,
-                                            (ptA.z()+ ptB.z())/2.0);
-              cd.b1_pos = mean_pos - b1->getTran().translation();
-              cd.b2_pos =  mean_pos  - b2->getTran().translation();
+                              cd.b1_pos = position(ptA.x(),ptA.y(), ptA.z())  - b1->getTran().translation();
+                              cd.b2_pos =  position(ptB.x(),ptB.y(), ptB.z())  - b2->getTran().translation();
+//              position mean_pos = position( (ptA.x()+ ptB.x())/2.0,
+//                                            (ptA.y()+ ptB.y())/2.0,
+//                                            (ptA.z()+ ptB.z())/2.0);
+//              cd.b1_pos = mean_pos - b1->getTran().translation();
+//              cd.b2_pos =  mean_pos  - b2->getTran().translation();
               cd.b1_normal = vec3(-normalOnB.x(),- normalOnB.y(), -normalOnB.z());
               cd.b2_normal = vec3(normalOnB.x(), normalOnB.y(), normalOnB.z());
               cd.distSq = pt.getDistance()*pt.getDistance();
@@ -256,13 +279,13 @@ BulletCollision::contact(ContactReport *report, double threshold,
               const btVector3& normalOnB = pt.m_normalWorldOnB;
 
               //need contact in body reference frames.
-              //                cd.b1_pos = position(ptA.x(),ptA.y(), ptA.z())  - b1->getTran().translation();
-              //                cd.b2_pos =  position(ptB.x(),ptB.y(), ptB.z())  - b2->getTran().translation();
-              position mean_pos = position( (ptA.x()+ ptB.x())/2.0,
-                                            (ptA.y()+ ptB.y())/2.0,
-                                            (ptA.z()+ ptB.z())/2.0);
-              cd.b1_pos = mean_pos - b1->getTran().translation();
-              cd.b2_pos =  mean_pos  - b2->getTran().translation();
+                              cd.b1_pos = position(ptA.x(),ptA.y(), ptA.z())  - b1->getTran().translation();
+                              cd.b2_pos =  position(ptB.x(),ptB.y(), ptB.z())  - b2->getTran().translation();
+//              position mean_pos = position( (ptA.x()+ ptB.x())/2.0,
+//                                            (ptA.y()+ ptB.y())/2.0,
+//                                            (ptA.z()+ ptB.z())/2.0);
+//              cd.b1_pos = mean_pos - b1->getTran().translation();
+//              cd.b2_pos =  mean_pos  - b2->getTran().translation();
               cd.b1_normal = vec3(-normalOnB.x(),- normalOnB.y(), -normalOnB.z());
               cd.b2_normal = vec3(normalOnB.x(), normalOnB.y(), normalOnB.z());
               cd.distSq = pt.getDistance()*pt.getDistance();

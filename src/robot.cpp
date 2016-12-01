@@ -1319,29 +1319,54 @@ int
 Robot::interpolateJoints(double *initialVals, double *finalVals,
                          CollisionReport *colReport, double *interpolationTime)
 {
+  std::cout << "Robot::interpolateJoints" << std::endl;
   double *currentVals = new double[ getNumJoints() ];
   double minDist, t = 0.0, deltat = 1.0;
   while (deltat > 1.0e-20 && t >= 0) {
-
+    std::cout << "start t: " << t << std::endl;
     DBGP("DOF joint interpolation cycle")
     deltat *= 0.5;
     for (int j = 0; j < getNumJoints(); j++) {
       currentVals[j] = t * finalVals[j] + (1.0 - t) * initialVals[j];
+      std::cout << "current joint " <<j <<" " << currentVals[j] << std::endl;
+      std::cout << "finalVals joint " <<j <<" " << finalVals[j] << std::endl;
+      std::cout << "initialVals joint "<<j <<" "  << initialVals[j] << std::endl;
     }
     setJointValuesAndUpdate(currentVals);
 
     minDist = 1.0e10;
     for (int i = 0; i < (int)colReport->size(); i++) {
-      minDist = MIN(minDist, myWorld->getDist((*colReport)[i].first, (*colReport)[i].second));
-      if (minDist <= 0) {
-        t -= deltat;
-        break;
+      double t_minDist = MIN(minDist, myWorld->getDist((*colReport)[i].first, (*colReport)[i].second));
+      if (t_minDist <= minDist) {
+        minDist = t_minDist;
       }
     }
+
+    std::cout << "minDist:" << minDist << std::endl;
+
+#ifdef BULLET_DYNAMICS
+    if (minDist > 0) {
+        t += deltat;
+      }
+    else {//no interpenetrate
+        if (-minDist < 1) {   //if (-minDist < Contact::THRESHOLD * 0.5) {
+            std::cout << "Breaking out: minDist: " << minDist << " t: " << t << std::endl;
+            break;
+          }
+        t -= deltat;
+      }
+#endif
+
+#ifdef GRASPIT_DYNAMICS
     if (minDist > 0) {
       if (minDist < 0.5 * Contact::THRESHOLD) { break; }
       t += deltat;
     }
+    else {
+        t -= deltat;
+      }
+#endif
+    std::cout << "end t: " << t << std::endl;
   }
 
   int retVal;
@@ -1363,6 +1388,7 @@ Robot::interpolateJoints(double *initialVals, double *finalVals,
   }
   delete [] currentVals;
   *interpolationTime = t;
+  std::cout << "returned t: " << t << std::endl;
   return retVal;
 }
 
@@ -1519,7 +1545,7 @@ Robot::jumpDOFToContact(double *desiredVals, int *stoppedJoints, int *numCols)
 
   setJointValuesAndUpdate(newJointVals);
   bool interpolationError = false;
-  double interpolationTime;
+  double interpolationTime = 0;
   while (1) {
     myWorld->getCollisionReport(&colReport, &interestList);
     //if we are free of collision, we are done
@@ -1529,8 +1555,8 @@ Robot::jumpDOFToContact(double *desiredVals, int *stoppedJoints, int *numCols)
     getJointValues(newJointVals);
     if (!interpolateJoints(initialJointVals, newJointVals, &colReport, &interpolationTime)) {
       DBGA("Interpolation failed!");
+      std::cout << "Interpolation failed!" << std::endl;
       interpolationError = true;
-      break;
     }
     //save the list of contacting bodies
     lateContacts.clear();
@@ -1545,9 +1571,10 @@ Robot::jumpDOFToContact(double *desiredVals, int *stoppedJoints, int *numCols)
                           initialDofVals[d] * (1.0 - interpolationTime);
       DBGP("Interpolated: " << newDofVals[d]);
     }
+    break;
   }
 
-  if (!interpolationError) {
+  //if (!interpolationError) {
     DBGP("ForceDOFTo done");
     myWorld->findContacts(lateContacts);
     for (int i = 0; i < (int)lateContacts.size(); i++) {
@@ -1560,7 +1587,7 @@ Robot::jumpDOFToContact(double *desiredVals, int *stoppedJoints, int *numCols)
     }
     updateDofVals(newDofVals);
     if (numCols) { *numCols = (int)lateContacts.size(); }
-  }
+  //}
 
   delete [] initialDofVals; delete [] newDofVals;
   delete [] initialJointVals; delete [] newJointVals;

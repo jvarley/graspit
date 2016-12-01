@@ -2287,6 +2287,8 @@ Link::getProximalJointLocation()
 vec3
 Link::getProximalJointAxis()
 {
+  std::cout << "linkNum: " << linkNum << std::endl;
+  std::cout << "chainNum: " << std::endl;
   int jointNum = owner->getChain(chainNum)->getLastJoint(linkNum);
   Joint *j = owner->getChain(chainNum)->getJoint(jointNum);
   vec3 r = vec3(0, 0, 1) * j->getTran().inverse();

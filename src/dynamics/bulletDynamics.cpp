@@ -80,7 +80,7 @@ void BulletDynamics::addRobot(Robot *robot)
       DOF *dof = robot->getDOF(d);
 
       Joint *baseJoint = dof->getJointList().at(0);
-      Link *baseLink = dynamic_cast<Link *>(baseJoint->getDynJoint()->getNextLink());
+      Link *baseLink = static_cast<Link *>(baseJoint->getDynJoint()->getNextLink());
       DBGP("baseLink->getName(): " << baseLink->getName().toStdString().c_str() << std::endl);
       btRigidBody *btbaseLink = mBulletEngine->btBodyMap.find(baseLink)->second;
 
@@ -88,27 +88,48 @@ void BulletDynamics::addRobot(Robot *robot)
       btVector3 btcbaseLinkaxis(baseLinkaxis.x() , baseLinkaxis.y() , baseLinkaxis.z());
 
 
-      for (unsigned int j_count = 0; j_count < dof->getJointList().size(); j_count ++)
+      for (unsigned int j_count = 1; j_count < dof->getJointList().size(); j_count ++)
       {
 
         Joint *joint = dof->getJointList().at(j_count);
+        Joint *prev_joint = dof->getJointList().at(j_count-1);
 
-        Link *currentLink = dynamic_cast<Link *>(joint->getDynJoint()->getNextLink());
+        Link *currentLink = static_cast<Link *>(joint->getDynJoint()->getNextLink());
+        Link *previousLink = static_cast<Link *>(joint->getDynJoint()->getPrevLink());
 
-        btRigidBody *btcurrentLink = mBulletEngine->btBodyMap.find(currentLink)->second;
-        vec3 currentLinkaxis = currentLink->getProximalJointAxis();
-        btVector3 btcurrentLinkaxis(currentLinkaxis.x() , currentLinkaxis.y() , currentLinkaxis.z());
-
-        if (btcurrentLink != btbaseLink)
+        if ((currentLink != robot->getBase()) && (previousLink != robot->getBase()))
         {
-          DBGP("Gear Ratio: " << baseLink->getName().toStdString().c_str() << std::endl);
-          btGearConstraint *newGear = new btGearConstraint(*btbaseLink,
+
+            btRigidBody *btcurrentLink = mBulletEngine->btBodyMap.find(currentLink)->second;
+            btRigidBody *btpreviousLink = mBulletEngine->btBodyMap.find(previousLink)->second;
+
+            vec3 currentLinkaxis = currentLink->getProximalJointAxis();
+            btVector3 btcurrentLinkaxis(currentLinkaxis.x() , currentLinkaxis.y() , currentLinkaxis.z());
+
+
+            vec3 previousLinkaxis = previousLink->getProximalJointAxis();
+            btVector3 btpreviousLinkaxis(previousLinkaxis.x() , previousLinkaxis.y() , previousLinkaxis.z());
+
+          //btScalar coupling_ratio =  btScalar(prev_joint->getCouplingRatio()  / joint->getCouplingRatio());
+          btScalar coupling_ratio =  btScalar(joint->getCouplingRatio() / prev_joint->getCouplingRatio() );
+
+
+
+          std::cout << "baseLink: " << baseLink << " " <<baseLink->getFilename().toStdString().c_str() << std::endl;
+          std::cout << "currentLink: " << currentLink << " " <<currentLink->getFilename().toStdString().c_str() << std::endl;
+          std::cout << "previousLink: " << previousLink << " " << previousLink->getFilename().toStdString().c_str() << std::endl;
+
+          std::cout << "joint->getCouplingRatio(): " << joint->getCouplingRatio() << std::endl;
+          std::cout << "prev_joint->getCouplingRatio(): " << prev_joint->getCouplingRatio() << std::endl;
+          std::cout << "coupling ratio: " << coupling_ratio << std::endl;
+
+          btGearConstraint *newGear = new btGearConstraint(*btpreviousLink,
                                                            *btcurrentLink,
-                                                           btcbaseLinkaxis,
+                                                           btpreviousLinkaxis,
                                                            btcurrentLinkaxis,
-                                                           -joint->getCouplingRatio() * 2.0);
-          //-1.0/joint->getCouplingRatio());
-          mBulletEngine->mBtDynamicsWorld->addConstraint(newGear);
+                                                           coupling_ratio);
+
+          //mBulletEngine->mBtDynamicsWorld->addConstraint(newGear);
         }
 
       }
@@ -467,11 +488,19 @@ double BulletDynamics::moveDynamicBodies(double timeStep) {
         dof->callController(timeStep);
       }
 
-      double magnitude = dof->getForce() / 10e6;
-      if (magnitude != 0)
-      {
-        btApplyInternalWrench(dof->getJointList().at(0),  magnitude,  mBulletEngine->btBodyMap);
-      }
+
+
+      for (int j=0; j < dof->getJointList().size(); j++)
+        {
+          Joint *mJoint = dof->getJointList().at(j);
+
+          double magnitude = dof->getForce() * mJoint->getCouplingRatio() / 10e6;
+          if (magnitude != 0)
+          {
+            btApplyInternalWrench(dof->getJointList().at(j),  magnitude,  mBulletEngine->btBodyMap);
+          }
+        }
+
 
     }
 
@@ -500,7 +529,7 @@ double BulletDynamics::moveDynamicBodies(double timeStep) {
                        velocityInWorldFrame.translation().y() - robot->getTran().translation().y(),
                        velocityInWorldFrame.translation().z() - robot->getTran().translation().z());
 
-    btbase->setLinearVelocity(velocity);
+    //btbase->setLinearVelocity(velocity);
 
     //! Convert the angular velocity defined  in the approach frame of reference to the world frame.
     transf rotFrame = rotXYZ(robot->getAngularVelocity().x(), robot->getAngularVelocity().y(), robot->getAngularVelocity().z());
@@ -512,7 +541,7 @@ double BulletDynamics::moveDynamicBodies(double timeStep) {
 
     btVector3 angularVelocity(r * rAxis.x(), r * rAxis.y(), r * rAxis.z());
 
-    btbase->setAngularVelocity(angularVelocity);
+    //btbase->setAngularVelocity(angularVelocity);
 
 
   }

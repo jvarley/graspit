@@ -42,6 +42,7 @@ find_package(Qhull REQUIRED)
 find_package(SoQt4 REQUIRED)
 find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
+find_package(CUDA)
 
 
 if (DYNAMICS_ENGINE STREQUAL BULLET_DYNAMICS)
@@ -483,11 +484,13 @@ if(DYNAMICS_ENGINE STREQUAL BULLET_DYNAMICS)
         ${GSRC}/include/dynamics/bulletDynamics.h  
         ${GSRC}/include/bulletEngine.h
         ${GSRC}/include/Collision/Bullet/bulletCollision.h
+        ${GSRC}/include/Collision/Bullet/triangleDistance.h
         )
     set (GRASPIT_DYNAMICS_SOURCES
         ${GSRC}/src/dynamics/bulletDynamics.cpp
         ${GSRC}/src/bulletEngine.cpp
         ${GSRC}/src/Collision/Bullet/bulletCollision.cpp
+        ${GSRC}/src/Collision/Bullet/triangleDistance.cu
         )
 
 endif(DYNAMICS_ENGINE STREQUAL BULLET_DYNAMICS)

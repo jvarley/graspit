@@ -108,52 +108,76 @@ WorldElement::interpolateTo(transf lastTran, transf newTran, const CollisionRepo
   bool done = false;
 
   while (!done && deltat > 1.0e-20 && t >= 0) {
-    DBGP("move interpolation cycle")
-    deltat /= 2.0;
+      std::cout << "start t: " << t << std::endl;
+      DBGP("move interpolation cycle")
+          deltat /= 2.0;
 
-    nextTranslation = (1.0 - t) * lastTran.translation() + t * newTran.translation();
-    nextRotation = Quaternion::Slerp(t, lastTran.rotation(), newTran.rotation());
-    nextTran = transf(nextRotation, nextTranslation);
-    DBGP("moving to time : " << t);
-    if (setTran(nextTran) == FAILURE) {
-      deltat = 0;
-      break;
-    }
+      nextTranslation = (1.0 - t) * lastTran.translation() + t * newTran.translation();
+      nextRotation = Quaternion::Slerp(t, lastTran.rotation(), newTran.rotation());
+      nextTran = transf(nextRotation, nextTranslation);
+      DBGP("moving to time : " << t);
+      if (setTran(nextTran) == FAILURE) {
+          deltat = 0;
+          std::cout << "setTran(nextTran) == FAILURE" << std::endl;
+          std::cout << "interpolateTo breaking 0 " << std::endl;
+          break;
+        }
 
-    minDist = myWorld->getDist(colReport[0].first, colReport[0].second);
-    for (int i = 1; i < numCols; i++) {
-      double dist = myWorld->getDist(colReport[i].first, colReport[i].second);
-      minDist = MIN(minDist, dist);
-    }
-    DBGP("minDist: " << minDist);
-    if (minDist > 0) {
-      if (minDist < Contact::THRESHOLD * 0.5) {
-        break;
-      }
-      t += deltat;
-    }
-    else {
-      t -= deltat;
-    }
+      minDist = myWorld->getDist(colReport[0].first, colReport[0].second);
+      for (int i = 1; i < numCols; i++) {
+          double dist = myWorld->getDist(colReport[i].first, colReport[i].second);
+          minDist = MIN(minDist, dist);
+        }
 
-    //debug code
-    if (deltat <= 1.0e-20 || t < 0) {
-      for (int i = 0; i < numCols; i++) {
-        double dist = myWorld->getDist(colReport[i].first, colReport[i].second);
-        DBGA(colReport[i].first->getName().latin1() << " -- " <<
-             colReport[i].second->getName().latin1() << " is " << dist);
-      }
-    }
+      DBGP("minDist: " << minDist);
+      std::cout << "minDist:" << minDist << std::endl;
 
-  }
+#ifdef BULLET_DYNAMICS
+      if (minDist < 0) {
+          //if (-minDist < Contact::THRESHOLD * 0.5) {
+          if (-minDist < 1) {
+              std::cout << "breaking minDist:" << minDist << std::endl;
+              std::cout << "interpolateTo breaking 1 " << std::endl;
+              break;
+            }
+          t -= deltat;
+        }
+      else {
+          t += deltat;
+        }
+#endif
+
+#ifdef GRASPIT_DYNAMICS
+      if (minDist > 0) {
+          if (minDist < Contact::THRESHOLD * 0.5) {
+              std::cout << "interpolateTo breaking 2 " << std::endl;
+              break;
+            }
+          t += deltat;
+        }
+      else {
+          t -= deltat;
+        }
+#endif
+
+      //debug code
+      if (deltat <= 1.0e-20 || t < 0) {
+          for (int i = 0; i < numCols; i++) {
+              double dist = myWorld->getDist(colReport[i].first, colReport[i].second);
+              DBGA(colReport[i].first->getName().latin1() << " -- " <<
+                   colReport[i].second->getName().latin1() << " is " << dist);
+            }
+        }
+    std::cout << "end t: " << t << std::endl;
+    }
   if (deltat < 1.0e-20 || t < 0) {
-    DBGP("deltat failsafe or negative t hit; interpolate failure");
-    fprintf(stdout, "WorldElement interpolation error!\n");
-    return false;
-  } else {
-    DBGP("deltat: " << deltat << "; minDist: " << minDist << "; interpolate success.");
-    return true;
-  }
+      DBGP("deltat failsafe or negative t hit; interpolate failure");
+      fprintf(stdout, "WorldElement interpolation error!\n");
+      return false;
+    } else {
+      DBGP("deltat: " << deltat << "; minDist: " << minDist << "; interpolate success.");
+      return true;
+    }
 }
 
 /*! Attempts to move the element from its current pose to the new pose
@@ -174,30 +198,31 @@ bool WorldElement::jumpTo(transf newTran, CollisionReport *contactReport)
   getBodyList(&interestList);
   contactReport->clear();
   while (1) {
-    numCols = myWorld->getCollisionReport(&colReport, &interestList);
-    if (!numCols) {
-      return true;
-    }
+      numCols = myWorld->getCollisionReport(&colReport, &interestList);
+      if (!numCols) {
+          return true;
+        }
 
 #ifdef GRASPITDBG
-    for (i = 0; i < numCols; i++) {
-      std::cerr << colReport[i].first->getName().latin1() << " -- "
-                << colReport[i].second->getName().latin1() << std::endl;
-    }
-    DBGP("I am " << myName.latin1());
+      for (i = 0; i < numCols; i++) {
+          std::cerr << colReport[i].first->getName().latin1() << " -- "
+                    << colReport[i].second->getName().latin1() << std::endl;
+        }
+      DBGP("I am " << myName.latin1());
 #endif
 
-    success = interpolateTo(lastTran, getTran(), colReport);
-    if (!success) {
-      return false;
+      success = interpolateTo(lastTran, getTran(), colReport);
+      if (!success) {
+          return false;
+        }
+      contactReport->clear();
+      for (i = 0; i < numCols; i++) {
+          if (myWorld->getDist(colReport[i].first, colReport[i].second) < Contact::THRESHOLD) {
+              contactReport->push_back(colReport[i]);
+            }
+        }
+      return true;
     }
-    contactReport->clear();
-    for (i = 0; i < numCols; i++) {
-      if (myWorld->getDist(colReport[i].first, colReport[i].second) < Contact::THRESHOLD) {
-        contactReport->push_back(colReport[i]);
-      }
-    }
-  }
 }
 
 /*!
@@ -215,6 +240,8 @@ bool WorldElement::jumpTo(transf newTran, CollisionReport *contactReport)
 bool
 WorldElement::moveTo(transf &newTran, double translStepSize, double rotStepSize)
 {
+
+  std::cout << "Entering WorldElement::moveTo: " << std::endl;
   bool moveFinished = false;
   transf origTran, nextTran, motion;
   Quaternion nextRotation;
@@ -229,15 +256,15 @@ WorldElement::moveTo(transf &newTran, double translStepSize, double rotStepSize)
   //DBGP("moveTo called");
 
   origTran = getTran();
-  /*
-    std::cout << "WorldElement origTran: " << origTran.translation().x() << " " <<
-    origTran.translation().y() << " " <<
-    origTran.translation().z() << " " <<
-    origTran.rotation().w << " " <<
-    origTran.rotation().x << " " <<
-    origTran.rotation().y << " " <<
-    origTran.rotation().z << " " << "\n";
-  */
+
+  std::cout << "WorldElement origTran: " << origTran.translation().x() << " " <<
+               origTran.translation().y() << " " <<
+               origTran.translation().z() << " " <<
+               origTran.rotation().w << " " <<
+               origTran.rotation().x << " " <<
+               origTran.rotation().y << " " <<
+               origTran.rotation().z << " " << "\n";
+
   //calculate the difference
   translationLength = (newTran.translation() - origTran.translation()).len();
   nextRotation = newTran.rotation() * origTran.rotation().inverse();
@@ -245,21 +272,21 @@ WorldElement::moveTo(transf &newTran, double translStepSize, double rotStepSize)
 
   moveIncrement = 1.0;
   if (translationLength != 0.0) {
-    if (translStepSize == ONE_STEP) {
-      moveIncrement = 1.0;
+      if (translStepSize == ONE_STEP) {
+          moveIncrement = 1.0;
+        }
+      else {
+          moveIncrement = MIN(moveIncrement, translStepSize / translationLength);
+        }
     }
-    else {
-      moveIncrement = MIN(moveIncrement, translStepSize / translationLength);
-    }
-  }
   if (angle != 0.0) {
-    if (rotStepSize == ONE_STEP) {
-      moveIncrement = MIN(moveIncrement, 1.0);
+      if (rotStepSize == ONE_STEP) {
+          moveIncrement = MIN(moveIncrement, 1.0);
+        }
+      else {
+          moveIncrement = MIN(moveIncrement, rotStepSize / angle);
+        }
     }
-    else {
-      moveIncrement = MIN(moveIncrement, rotStepSize / angle);
-    }
-  }
 
   // check contacts
   nextTranslation = (1.0 - moveIncrement) * origTran.translation() + moveIncrement * newTran.translation();
@@ -268,43 +295,57 @@ WorldElement::moveTo(transf &newTran, double translStepSize, double rotStepSize)
   motion = nextTran * getTran().inverse();
 
   if (contactsPreventMotion(motion)) {
-    DBGP("contacts prevent motion")
-    return false;
-  }
+      DBGP("contacts prevent motion")
+          std::cout << "contacts prevent motion" << std::endl;
+      return false;
+    }
 
   percentComplete = 0.0;
-  while (!moveFinished) {
-    percentComplete += moveIncrement;
-    if (percentComplete >= 1.0) {
-      percentComplete = 1.0;
-      moveFinished = true;
-    }
+  while (!moveFinished)
+    {
+      percentComplete += moveIncrement;
+      if (percentComplete >= 1.0) {
+          percentComplete = 1.0;
+          moveFinished = true;
+        }
 
-    nextTranslation = (1.0 - percentComplete) * origTran.translation() + percentComplete * newTran.translation();
-    nextRotation = Quaternion::Slerp(percentComplete, origTran.rotation(), newTran.rotation());
-    nextTran = transf(nextRotation, nextTranslation);
-    /*
+      nextTranslation = (1.0 - percentComplete) * origTran.translation() + percentComplete * newTran.translation();
+      nextRotation = Quaternion::Slerp(percentComplete, origTran.rotation(), newTran.rotation());
+      nextTran = transf(nextRotation, nextTranslation);
+
       std::cout << "moveTo NextTran: " << nextTran.translation().x() << " " <<
-      nextTran.translation().y() << " " <<
-      nextTran.translation().z() << " " <<
-      nextTran.rotation().w << " " <<
-      nextTran.rotation().x << " " <<
-      nextTran.rotation().y << " " <<
-      nextTran.rotation().z << " " << "\n";
-    */
-    success = jumpTo(nextTran, &contactReport);
-    if (!success || contactReport.size() != 0) {
-      moveFinished = true;
+                   nextTran.translation().y() << " " <<
+                   nextTran.translation().z() << " " <<
+                   nextTran.rotation().w << " " <<
+                   nextTran.rotation().x << " " <<
+                   nextTran.rotation().y << " " <<
+                   nextTran.rotation().z << " " << "\n";
+
+      success = jumpTo(nextTran, &contactReport);
+
+#ifdef BULLET_DYNAMICS
+      if (!success) {
+          moveFinished = true;
+        }
+#endif
+
+#ifdef GRASPIT_DYNAMICS
+
+      if (!success || contactReport.size() != 0) {
+          moveFinished = true;
+        }
+#endif
     }
-  }
 
   if (!success) {
-    DBGA("JumpTo error, stopping execution. Object " << myName.latin1() << " in thread "
-         << getWorld()->getCollisionInterface()->getThreadId());
-  } else {
-    myWorld->findContacts(contactReport);
-  }
-
+      std::cout << "Exiting WorldElement::moveTo: failed "  <<  std::endl;
+      DBGA("JumpTo error, stopping execution. Object " << myName.latin1() << " in thread "
+           << getWorld()->getCollisionInterface()->getThreadId());
+    } else {
+      std::cout << "Exiting WorldElement::moveTo: success "  <<  std::endl;
+      myWorld->findContacts(contactReport);
+    }
+  std::cout << "Exiting WorldElement::moveTo: contactReportSize " << contactReport.size() <<  std::endl;
   if (contactReport.size() != 0) { return false; }
   return true;
 }
