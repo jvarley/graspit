@@ -21,7 +21,7 @@ set(COLLISION_ENGINE GRASPIT_COLLISION CACHE PATH "back end for GraspIt! Collisi
 set(CGDB true CACHE PATH "compile CGDB sources as well")
 set(PLY true CACHE PATH "compile PLY sources as well")
 set(DYNAMICS_ENGINE GRASPIT_DYNAMICS CACHE PATH "back end for GraspIt! Dynamics, current options are GRASPIT_DYNAMICS, BULLET_DYNAMICS")
-set(BUILD_TESTS false CACHE PATH "build tests as well")
+set(BUILD_TESTS true CACHE PATH "build tests as well")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
 	set (GRASPIT_DEFINES 
@@ -899,8 +899,8 @@ find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
 
 # Make test executables
-add_executable(primative_planner_tests
-    ${GSRC}/test/primative_planner_tests.cpp
+add_executable(primitive_planner_tests
+    ${GSRC}/test/primitive_planner_tests.cpp
 )
 
 add_executable(eigen_tests
@@ -915,19 +915,24 @@ add_executable(graspit_collision_tests
     ${GSRC}/test/graspit_collision_tests.cpp
 )
 
-set_target_properties( primative_planner_tests eigen_tests transform_tests graspit_collision_tests
+add_executable(kinematic_chain_tests
+    ${GSRC}/test/kinematic_chain_tests.cpp
+)
+
+set_target_properties( primitive_planner_tests eigen_tests transform_tests graspit_collision_tests kinematic_chain_tests
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test"
 )
 
-add_dependencies(primative_planner_tests googletest)
+add_dependencies(primitive_planner_tests googletest)
 add_dependencies(eigen_tests googletest)
 add_dependencies(transform_tests googletest)
 add_dependencies(graspit_collision_tests googletest)
+add_dependencies(kinematic_chain_tests googletest)
 
-target_link_libraries(primative_planner_tests
+target_link_libraries(primitive_planner_tests
    graspit
    ${GTEST_BOTH_LIBRARIES}
 )
@@ -947,9 +952,10 @@ target_link_libraries(graspit_collision_tests
    ${GTEST_BOTH_LIBRARIES}
 )
 
-
-
-
+target_link_libraries(kinematic_chain_tests
+   graspit
+   ${GTEST_BOTH_LIBRARIES}
+)
 
 
 endif(BUILD_TESTS)
