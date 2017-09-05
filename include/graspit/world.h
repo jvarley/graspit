@@ -52,6 +52,7 @@ class GraspableBody;
 class WorldElement;
 class Tendon;
 class DynamicsEngine;
+class DisplayInterface;
 
 typedef std::vector<position> Neighborhood;
 
@@ -153,6 +154,9 @@ class World : public QObject {
 
     //! A pointer to the collision detection instance
     CollisionInterface *mCollisionInterface;
+
+    //! A pointer to the displayInterface instance
+    DisplayInterface *mDisplayInterface;
 
     //! A pointer to the dynamics engine
     DynamicsEngine *mDynamicsEngine;
@@ -475,6 +479,9 @@ class World : public QObject {
 
     //! Returns the collision interface being used
     CollisionInterface *getCollisionInterface() {return mCollisionInterface;}
+
+    //! Returns the collision interface being used
+    DisplayInterface *getDisplayInterface() {return mDisplayInterface;}
 
     //! Computes the distance between a point and a body
     vec3 pointDistanceToBody(position p, Body *b, vec3 *normal = NULL);

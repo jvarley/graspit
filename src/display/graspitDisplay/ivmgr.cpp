@@ -91,8 +91,9 @@
 #include <Inventor/SoSceneManager.h>
 #include <Inventor/Qt/SoQt.h>
 
+#include "graspit/display/graspitDisplay/ivmgr.h"
+
 #include "graspit/pointers.dat"
-#include "graspit/ivmgr.h"
 #include "graspit/SoArrow.h"
 #include "graspit/SoTorquePointer.h"
 #include "graspit/SoComplexShape.h"

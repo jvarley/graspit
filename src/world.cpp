@@ -50,9 +50,9 @@
 #include "graspit/robots/humanHand.h"
 #include "graspit/contact/contact.h"
 #include "graspit/contactSetting.h"
-#include "graspit/ivmgr.h"
+#include "graspit/display/graspitDisplay/ivmgr.h"
+#include "graspit/display/graspitDisplay/graspitDisplay.h"
 #include "graspit/grasp.h"
-#include "graspit/ivmgr.h"
 #include "graspit/robots/barrett.h"
 #include "graspit/matvec3D.h"
 #include "graspit/bBox.h"
@@ -138,6 +138,8 @@ World::World(QObject *parent, const char *name) :
 #ifdef GRASPIT_COLLISION
   mCollisionInterface = new GraspitCollision();
 #endif
+
+  mDisplayInterface = new GraspitDisplay();
 
   IVRoot = new SoSeparator;
   IVRoot->ref();

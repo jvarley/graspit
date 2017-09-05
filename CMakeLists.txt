@@ -167,7 +167,8 @@ set (GRASPIT_INCLUDEDIR_HEADERS
     ${GSRC}/include/graspit/graspRecord.h
     ${GSRC}/include/graspit/gws.h
     ${GSRC}/include/graspit/gwsprojection.h
-    ${GSRC}/include/graspit/ivmgr.h
+    ${GSRC}/include/graspit/display/graspitDisplay/ivmgr.h
+    ${GSRC}/include/graspit/display/graspitDisplay/graspitDisplay.h
     ${GSRC}/include/graspit/jacobian.h
     ${GSRC}/include/graspit/joint.h
     ${GSRC}/include/graspit/kinematicChain.h
@@ -374,7 +375,8 @@ set (MOC_HEADERS
     ${GSRC}/include/graspit/grasp.h
     ${GSRC}/include/graspit/worldElement.h
     ${GSRC}/include/graspit/graspitServer.h
-    ${GSRC}/include/graspit/ivmgr.h
+    ${GSRC}/include/graspit/display/graspitDisplay/graspitDisplay.h
+    ${GSRC}/include/graspit/display/graspitDisplay/ivmgr.h
     ${GSRC}/include/graspit/EGPlanner/egPlanner.h
     ${GSRC}/include/graspit/EGPlanner/simAnn.h
     ${GSRC}/include/graspit/EGPlanner/loopPlanner.h
@@ -431,7 +433,8 @@ set (GRASPIT_CORE_SOURCES
     ${GSRC}/src/graspRecord.cpp 
     ${GSRC}/src/gws.cpp 
     ${GSRC}/src/gwsprojection.cpp 
-    ${GSRC}/src/ivmgr.cpp 
+    ${GSRC}/src/display/graspitDisplay/ivmgr.cpp
+    ${GSRC}/src/display/graspitDisplay/graspitDisplay.cpp
     ${GSRC}/src/jacobian.cpp 
     ${GSRC}/src/joint.cpp 
     ${GSRC}/src/kinematicChain.cpp 
